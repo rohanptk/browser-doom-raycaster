@@ -2,7 +2,9 @@
 
 A playable, barebones, Wolfenstein 3D/Doom-style first-person shooter running entirely in the web browser. Built using vanilla JS (Canvas 2D context) with **no build steps, no frameworks, and no external assets**.
 
-🕹️ **Play instantly by double-clicking `index.html`!**
+🎮 **[PLAY THE GAME LIVE IN YOUR BROWSER HERE!](https://rohanptk.github.io/browser-doom-raycaster/)**
+
+🕹️ **Or play locally by double-clicking `index.html`!**
 
 ---
 
