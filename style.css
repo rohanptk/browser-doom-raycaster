@@ -1,0 +1,399 @@
+/* --- Global Reset & Aesthetic Setup --- */
+:root {
+    --bg-color: #0b0b0f;
+    --panel-bg: rgba(18, 18, 26, 0.85);
+    --border-color: rgba(0, 242, 254, 0.3);
+    --neon-blue: #00f2fe;
+    --neon-red: #ff0055;
+    --neon-green: #39ff14;
+    --neon-yellow: #ffdf00;
+    --text-primary: #e2e8f0;
+    --text-muted: #64748b;
+    --font-heading: 'Orbitron', sans-serif;
+    --font-mono: 'Share Tech Mono', monospace;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+}
+
+body {
+    background-color: var(--bg-color);
+    background-image: 
+        radial-gradient(at 50% 0%, rgba(0, 242, 254, 0.15) 0px, transparent 50%),
+        linear-gradient(rgba(18, 18, 26, 0.4) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(18, 18, 26, 0.4) 1px, transparent 1px);
+    background-size: 100% 100%, 20px 20px, 20px 20px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* --- Main Layout --- */
+#game-container {
+    width: 95vw;
+    max-width: 960px;
+    background: var(--panel-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 0 30px rgba(0, 242, 254, 0.15), inset 0 0 15px rgba(0, 242, 254, 0.05);
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* --- Terminal Header --- */
+.terminal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 2px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.terminal-header h1 {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--neon-blue);
+    text-shadow: 0 0 8px rgba(0, 242, 254, 0.5);
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background-color: var(--neon-green);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--neon-green);
+    animation: pulse 1.5s infinite alternate;
+}
+
+.system-status {
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    color: var(--neon-green);
+    letter-spacing: 1px;
+}
+
+/* --- Screen & Canvas Wrapper --- */
+#screen-wrapper {
+    position: relative;
+    width: 100%;
+    /* Maintain 16:10 or 8:5 ratio (320x200 is 16:10) */
+    aspect-ratio: 16 / 10;
+    background: #000;
+    border-bottom: 2px solid var(--border-color);
+}
+
+/* Crucial styles for the pixelated rendering of low-res retro canvas */
+#gameCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+/* --- Crosshair --- */
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+#crosshair::before, #crosshair::after {
+    content: '';
+    position: absolute;
+    background: var(--neon-green);
+    box-shadow: 0 0 3px var(--neon-green);
+}
+
+#crosshair::before {
+    top: 4px;
+    left: 0;
+    width: 10px;
+    height: 2px;
+}
+
+#crosshair::after {
+    top: 0;
+    left: 4px;
+    width: 2px;
+    height: 10px;
+}
+
+/* --- HUD (Heads-Up Display) --- */
+#hud {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: rgba(8, 8, 12, 0.95);
+    padding: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.hud-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    text-align: center;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hud-stat:last-child {
+    border-right: none;
+}
+
+.hud-label {
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+
+.hud-value {
+    font-family: var(--font-heading);
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--text-primary);
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.text-glow {
+    color: var(--neon-blue);
+    text-shadow: 0 0 8px rgba(0, 242, 254, 0.5);
+}
+
+.text-red {
+    color: var(--neon-red);
+    text-shadow: 0 0 8px rgba(255, 0, 85, 0.5);
+}
+
+/* Progress bars in HUD */
+.hud-bar-bg {
+    width: 80%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    margin-top: 6px;
+    overflow: hidden;
+}
+
+.hud-bar-fill {
+    height: 100%;
+    width: 100%;
+    transition: width 0.1s ease;
+}
+
+.fill-health {
+    background: var(--neon-green);
+    box-shadow: 0 0 6px var(--neon-green);
+}
+
+.fill-ammo {
+    background: var(--neon-yellow);
+    box-shadow: 0 0 6px var(--neon-yellow);
+}
+
+/* --- Overlays (Screens) --- */
+.overlay-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(5, 5, 8, 0.85);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    transition: opacity 0.3s ease;
+}
+
+.overlay-screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.overlay-content {
+    text-align: center;
+    padding: 30px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(18, 18, 26, 0.95);
+    box-shadow: 0 0 30px rgba(0, 242, 254, 0.2);
+    max-width: 500px;
+    width: 90%;
+}
+
+.glitch-text {
+    font-family: var(--font-heading);
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: var(--neon-blue);
+    letter-spacing: 4px;
+    text-shadow: 0 0 10px rgba(0, 242, 254, 0.7);
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 25px;
+    letter-spacing: 1px;
+}
+
+/* --- Instructions Controls table --- */
+.instructions {
+    text-align: left;
+    margin: 0 auto 25px auto;
+    font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 90%;
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 6px;
+}
+
+.key {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin-right: 4px;
+    font-weight: bold;
+    font-size: 0.8rem;
+    color: var(--neon-blue);
+}
+
+.mouse-icon, .mouse-click, .mouse-scroll {
+    color: var(--neon-blue);
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.action {
+    margin-left: auto;
+    color: var(--text-primary);
+}
+
+/* Buttons */
+button {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 2px;
+    padding: 14px 28px;
+    background: transparent;
+    color: var(--neon-blue);
+    border: 2px solid var(--neon-blue);
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    background: var(--neon-blue);
+    color: #000;
+    box-shadow: 0 0 20px rgba(0, 242, 254, 0.6);
+}
+
+/* Death Screen Styling */
+.death {
+    border-color: rgba(255, 0, 85, 0.4);
+    box-shadow: 0 0 35px rgba(255, 0, 85, 0.3);
+}
+
+.death-title {
+    font-family: var(--font-heading);
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--neon-red);
+    letter-spacing: 3px;
+    text-shadow: 0 0 15px rgba(255, 0, 85, 0.8);
+    margin-bottom: 10px;
+}
+
+.btn-danger {
+    color: var(--neon-red);
+    border-color: var(--neon-red);
+    box-shadow: 0 0 10px rgba(255, 0, 85, 0.2);
+}
+
+.btn-danger:hover {
+    background: var(--neon-red);
+    color: #000;
+    box-shadow: 0 0 20px rgba(255, 0, 85, 0.6);
+}
+
+/* Victory Screen Styling */
+.victory {
+    border-color: rgba(57, 255, 20, 0.4);
+    box-shadow: 0 0 35px rgba(57, 255, 20, 0.3);
+}
+
+.victory-title {
+    font-family: var(--font-heading);
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--neon-green);
+    letter-spacing: 3px;
+    text-shadow: 0 0 15px rgba(57, 255, 20, 0.8);
+    margin-bottom: 10px;
+}
+
+.btn-success {
+    color: var(--neon-green);
+    border-color: var(--neon-green);
+    box-shadow: 0 0 10px rgba(57, 255, 20, 0.2);
+}
+
+.btn-success:hover {
+    background: var(--neon-green);
+    color: #000;
+    box-shadow: 0 0 20px rgba(57, 255, 20, 0.6);
+}
+
+.stats-summary {
+    margin: 15px 0 25px 0;
+    color: var(--text-muted);
+}
+
+/* --- Animations --- */
+@keyframes pulse {
+    0% {
+        opacity: 0.6;
+        box-shadow: 0 0 4px var(--neon-green);
+    }
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 12px var(--neon-green);
+    }
+}

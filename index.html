@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Raycast Doom Clone</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts for modern/retro typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Arcade/Terminal Header -->
+        <header class="terminal-header">
+            <span class="pulse-dot"></span>
+            <h1>SYSTEM://DOOM_RAYCASTER.EXE</h1>
+            <span class="system-status">ONLINE</span>
+        </header>
+
+        <!-- Main Screen Wrapper -->
+        <div id="screen-wrapper">
+            <!-- Raycaster Canvas -->
+            <canvas id="gameCanvas" width="320" height="200"></canvas>
+
+            <!-- Crosshair -->
+            <div id="crosshair"></div>
+
+            <!-- Start / Pointer Lock Overlay -->
+            <div id="overlay" class="overlay-screen active">
+                <div class="overlay-content">
+                    <h2 class="glitch-text" data-text="DOOM LIGHT">DOOM LIGHT</h2>
+                    <p class="subtitle">A Pure Vanilla Raycasting Engine</p>
+                    <div class="instructions">
+                        <div class="control-row">
+                            <span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span>
+                            <span class="action">Move / Strafe</span>
+                        </div>
+                        <div class="control-row">
+                            <span class="mouse-icon">🖱️ Mouse</span>
+                            <span class="action">Look Around (Pointer Lock)</span>
+                        </div>
+                        <div class="control-row">
+                            <span class="mouse-click">Left Click</span> / <span class="key">Space</span>
+                            <span class="action">Fire Weapon</span>
+                        </div>
+                        <div class="control-row">
+                            <span class="key">1</span> <span class="key">2</span> <span class="key">3</span> / <span class="mouse-scroll">Scroll</span>
+                            <span class="action">Switch Weapons</span>
+                        </div>
+                        <div class="control-row">
+                            <span class="key">R</span>
+                            <span class="action">Restart Game</span>
+                        </div>
+                    </div>
+                    <button id="startButton">INITIALIZE NEURAL LINK</button>
+                </div>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="gameover-screen" class="overlay-screen hidden">
+                <div class="overlay-content death">
+                    <h2 class="death-title">DIED IN BATTLE</h2>
+                    <p>YOUR LIFE SIGNAL WAS TERMINATED</p>
+                    <p class="stats-summary">Kills: <span id="death-kills">0</span></p>
+                    <button id="restartButton" class="btn-danger">REDEPLOY (PRESS R)</button>
+                </div>
+            </div>
+
+            <!-- Win Screen -->
+            <div id="win-screen" class="overlay-screen hidden">
+                <div class="overlay-content victory">
+                    <h2 class="victory-title">LEVEL CLEARED</h2>
+                    <p>ALL HOSTILE SIGNALS ELIMINATED</p>
+                    <p class="stats-summary">Final Kills: <span id="win-kills">0</span></p>
+                    <button id="winRestartButton" class="btn-success">REPLAY (PRESS R)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom HUD -->
+        <footer id="hud">
+            <div class="hud-stat health-container">
+                <div class="hud-label">HEALTH</div>
+                <div class="hud-value" id="hud-health">100%</div>
+                <div class="hud-bar-bg"><div id="health-bar" class="hud-bar-fill fill-health"></div></div>
+            </div>
+            <div class="hud-stat weapon-container">
+                <div class="hud-label">WEAPON</div>
+                <div class="hud-value text-glow" id="hud-weapon">PISTOL</div>
+            </div>
+            <div class="hud-stat ammo-container">
+                <div class="hud-label">AMMO</div>
+                <div class="hud-value" id="hud-ammo">INF</div>
+                <div class="hud-bar-bg"><div id="ammo-bar" class="hud-bar-fill fill-ammo"></div></div>
+            </div>
+            <div class="hud-stat kills-container">
+                <div class="hud-label">HOSTILES ELIMINATED</div>
+                <div class="hud-value text-red" id="hud-kills">0</div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Main Game Script -->
+    <script src="game.js"></script>
+</body>
+</html>
