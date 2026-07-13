@@ -1,12 +1,13 @@
 /**
  * Retro Doom-style Raycaster Game Engine
+ * Rebuilt on a canonical vector-based camera projection (Lode Vandevenne model)
  * Written in vanilla JS with Canvas 2D.
  */
 
 // 1. GLOBAL CONFIGURATION
 const CONFIG = {
     resolution: { width: 320, height: 200 },
-    fov: Math.PI / 3, // 60 degrees
+    fov: Math.PI / 3, // 60 degrees (plane length corresponds to FOV)
     player: {
         speed: 3.5, // units per second
         rotSpeed: 2.2, // radians per second
@@ -116,7 +117,6 @@ class SoundManager {
             osc.start(now);
             osc.stop(now + 0.15);
         } else if (type === "shotgun") {
-            // Generate a burst of white noise for the blast
             const bufferSize = this.ctx.sampleRate * 0.35;
             const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
             const data = buffer.getChannelData(0);
@@ -126,7 +126,6 @@ class SoundManager {
             const noise = this.ctx.createBufferSource();
             noise.buffer = buffer;
 
-            // Lowpass filter to make it sound punchy/boomy
             const filter = this.ctx.createBiquadFilter();
             filter.type = "lowpass";
             filter.frequency.setValueAtTime(400, now);
@@ -199,8 +198,7 @@ function initTexturesAndSprites() {
         return { canvas: c, ctx: c.getContext("2d") };
     };
 
-    // Textures Size: 64x64
-    // 1. Brick Wall
+    // Brick Wall (1)
     const t1 = createBuffer(64, 64);
     t1.ctx.fillStyle = "#802020";
     t1.ctx.fillRect(0, 0, 64, 64);
@@ -220,7 +218,7 @@ function initTexturesAndSprites() {
     }
     Textures[1] = t1.canvas;
 
-    // 2. Tech Wall
+    // Tech Wall (2)
     const t2 = createBuffer(64, 64);
     t2.ctx.fillStyle = "#2e3440";
     t2.ctx.fillRect(0, 0, 64, 64);
@@ -239,7 +237,7 @@ function initTexturesAndSprites() {
     }
     Textures[2] = t2.canvas;
 
-    // 3. Grid/Door Wall
+    // Grid Wall (3)
     const t3 = createBuffer(64, 64);
     t3.ctx.fillStyle = "#4c566a";
     t3.ctx.fillRect(0, 0, 64, 64);
@@ -259,8 +257,7 @@ function initTexturesAndSprites() {
     t3.ctx.fillRect(60, 0, 4, 64);
     Textures[3] = t3.canvas;
 
-    // Sprites: 64x64
-    // 1. Enemy Idle
+    // Enemy Idle
     const sIdle = createBuffer(64, 64);
     sIdle.ctx.fillStyle = "transparent";
     sIdle.ctx.beginPath();
@@ -284,7 +281,7 @@ function initTexturesAndSprites() {
     sIdle.ctx.fill();
     Sprites["enemy_idle"] = sIdle.canvas;
 
-    // 2. Enemy Chase/Walk
+    // Enemy Chase
     const sChase = createBuffer(64, 64);
     sChase.ctx.drawImage(sIdle.canvas, 0, 0);
     sChase.ctx.fillStyle = "#ff5722";
@@ -293,7 +290,7 @@ function initTexturesAndSprites() {
     sChase.ctx.fill();
     Sprites["enemy_chase"] = sChase.canvas;
 
-    // 3. Enemy Attack (Charging)
+    // Enemy Attack
     const sAttack = createBuffer(64, 64);
     sAttack.ctx.drawImage(sIdle.canvas, 0, 0);
     sAttack.ctx.fillStyle = "rgba(255, 0, 85, 0.4)";
@@ -302,14 +299,14 @@ function initTexturesAndSprites() {
     sAttack.ctx.fill();
     Sprites["enemy_attack"] = sAttack.canvas;
 
-    // 4. Enemy Hurt (Staggered glow)
+    // Enemy Hurt
     const sHurt = createBuffer(64, 64);
     sHurt.ctx.drawImage(sIdle.canvas, 0, 0);
-    sHurt.ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    sHurt.ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
     sHurt.ctx.fillRect(0, 0, 64, 64);
     Sprites["enemy_hurt"] = sHurt.canvas;
 
-    // 5. Enemy Die
+    // Enemy Die
     const sDie = createBuffer(64, 64);
     sDie.ctx.fillStyle = "#7b1fa2";
     sDie.ctx.beginPath();
@@ -320,7 +317,7 @@ function initTexturesAndSprites() {
     sDie.ctx.fillRect(25, 35, 14, 15);
     Sprites["enemy_die"] = sDie.canvas;
 
-    // 6. Pickup - Health
+    // Pickup - Health
     const sHealth = createBuffer(64, 64);
     sHealth.ctx.beginPath();
     sHealth.ctx.arc(32, 40, 12, 0, Math.PI * 2);
@@ -331,7 +328,7 @@ function initTexturesAndSprites() {
     sHealth.ctx.fillRect(24, 37, 16, 6);
     Sprites["pickup_health"] = sHealth.canvas;
 
-    // 7. Pickup - Ammo (Bullet & Shell bundle)
+    // Pickup - Ammo
     const sAmmo = createBuffer(64, 64);
     sAmmo.ctx.fillStyle = "#ffdf00";
     sAmmo.ctx.fillRect(20, 32, 24, 18);
@@ -340,7 +337,7 @@ function initTexturesAndSprites() {
     sAmmo.ctx.fillText("AMMO", 22, 43);
     Sprites["pickup_ammo"] = sAmmo.canvas;
 
-    // Weapons frames
+    // Weapons (Base frames)
     const wPistol = createBuffer(64, 64);
     wPistol.ctx.fillStyle = "#4c566a";
     wPistol.ctx.fillRect(28, 20, 8, 30);
@@ -368,14 +365,18 @@ function initTexturesAndSprites() {
     Sprites["weapon_chaingun"] = wChaingun.canvas;
 }
 
-// 5. GAME OBJECTS STATE
+// 5. GAME DATA AND STATE
 const player = {
     x: 1.5,
     y: 1.5,
-    angle: 0.5,
+    // Vector Camera Representation (Per Lode Vandevenne's canonical math)
+    dirX: 1.0,
+    dirY: 0.0,
+    planeX: 0.0,
+    planeY: 0.66, // 0.66 corresponds to an ~66 deg FOV (which scales nicely)
     health: 100,
     activeWeaponIdx: 0,
-    ammo: [Infinity, 12, 60], // Pistol, Shotgun, Chaingun
+    ammo: [Infinity, 12, 60],
     kills: 0,
     isFiring: false,
     fireTimer: 0,
@@ -383,19 +384,24 @@ const player = {
 };
 
 let enemies = [];
-let sprites = []; // Pickups
+let sprites = []; // Collective list for health and ammo pickups
 
 function initMapEntities() {
+    // Standard player position vectors
     player.x = 1.5;
     player.y = 1.5;
-    player.angle = 0.5;
+    player.dirX = 1.0;
+    player.dirY = 0.0;
+    player.planeX = 0.0;
+    player.planeY = Math.tan(CONFIG.fov / 2); // Perfectly calculated plane vector size
+
     player.health = 100;
     player.activeWeaponIdx = 0;
     player.ammo = [Infinity, 12, 60];
     player.kills = 0;
     player.isFiring = false;
 
-    // Spawn Enemies
+    // Enemies (HP and State configurations tracked relative to CONFIG constraints)
     enemies = [
         { x: 14.5, y: 14.5, hp: CONFIG.enemy.maxHp, state: "idle", attackTimer: 0, hurtTimer: 0 },
         { x: 14.5, y: 2.5,  hp: CONFIG.enemy.maxHp, state: "idle", attackTimer: 0, hurtTimer: 0 },
@@ -405,7 +411,7 @@ function initMapEntities() {
         { x: 10.5, y: 13.5, hp: CONFIG.enemy.maxHp, state: "idle", attackTimer: 0, hurtTimer: 0 }
     ];
 
-    // Spawn Pickups
+    // Collectible Pickups
     sprites = [
         { x: 4.5, y: 4.5, type: "health", sprite: "pickup_health", collected: false },
         { x: 4.5, y: 5.5, type: "ammo", sprite: "pickup_ammo", collected: false },
@@ -483,34 +489,37 @@ function switchWeapon(idx) {
     updateHUD();
 }
 
-// 8. RAYCASTER ENGINE Math
-function castRays() {
+// 8. RENDER PASS - WALLS (Canonical DDA Vector Model)
+function castWalls() {
     const w = CONFIG.resolution.width;
     const h = CONFIG.resolution.height;
 
+    // Floor and Ceiling
     ctx.fillStyle = "#1e1e24";
     ctx.fillRect(0, 0, w, h / 2);
     ctx.fillStyle = "#332211";
     ctx.fillRect(0, h / 2, w, h / 2);
 
     for (let x = 0; x < w; x++) {
+        // cameraX is the coordinate on the camera plane, from -1 (left) to 1 (right)
         const cameraX = 2 * x / w - 1;
-        const rayAngle = player.angle + cameraX * (CONFIG.fov / 2);
-
-        const rayDirX = Math.cos(rayAngle);
-        const rayDirY = Math.sin(rayAngle);
+        
+        // Ray direction vectors: combination of direction and plane vectors
+        const rayDirX = player.dirX + player.planeX * cameraX;
+        const rayDirY = player.dirY + player.planeY * cameraX;
 
         let mapX = Math.floor(player.x);
         let mapY = Math.floor(player.y);
 
         let sideDistX, sideDistY;
 
+        // Length of ray from one x or y side to next x or y side
         const deltaDistX = Math.abs(1 / rayDirX);
         const deltaDistY = Math.abs(1 / rayDirY);
 
         let stepX, stepY;
         let hit = 0;
-        let side = 0;
+        let side = 0; // 0 = x-side hit, 1 = y-side hit
 
         if (rayDirX < 0) {
             stepX = -1;
@@ -528,6 +537,7 @@ function castRays() {
             sideDistY = (mapY + 1.0 - player.y) * deltaDistY;
         }
 
+        // Perform DDA
         while (hit === 0) {
             if (sideDistX < sideDistY) {
                 sideDistX += deltaDistX;
@@ -549,15 +559,16 @@ function castRays() {
         }
 
         if (hit > 0) {
+            // Calculate perpendicular distance to avoid fisheye (Lode Vandevenne's canonical distance formula)
             let perpWallDist;
             if (side === 0) perpWallDist = sideDistX - deltaDistX;
             else perpWallDist = sideDistY - deltaDistY;
 
+            // Write perpendicular distance to Z-Buffer
             zBuffer[x] = perpWallDist;
 
-            const correctedDist = perpWallDist * Math.cos(rayAngle - player.angle);
-
-            const wallHeight = Math.floor(h / correctedDist);
+            // Calculate height of wall slice to draw on screen
+            const wallHeight = Math.floor(h / perpWallDist);
             const drawStart = Math.max(0, -wallHeight / 2 + h / 2);
             const drawEnd = Math.min(h - 1, wallHeight / 2 + h / 2);
 
@@ -578,6 +589,7 @@ function castRays() {
                 ctx.fillRect(x, drawStart, 1, drawEnd - drawStart);
             }
 
+            // Distance shading overlay
             const shadowOpacity = Math.min(1.0, perpWallDist / 12);
             ctx.fillStyle = `rgba(0, 0, 0, ${shadowOpacity})`;
             ctx.fillRect(x, drawStart, 1, drawEnd - drawStart);
@@ -585,14 +597,14 @@ function castRays() {
     }
 }
 
-// 9. SPRITE BILLBOARDING & DEPTH RENDERER
-function renderSprites() {
+// 9. RENDER PASS - SPRITES (Billboard Projecting via Inverse Camera Matrix)
+function castSprites() {
     const w = CONFIG.resolution.width;
     const h = CONFIG.resolution.height;
 
     const activeSprites = [];
 
-    // Add pickups
+    // Add collectible pickups
     sprites.forEach(s => {
         if (!s.collected) {
             activeSprites.push({
@@ -604,7 +616,7 @@ function renderSprites() {
         }
     });
 
-    // Add enemies
+    // Add active enemies
     enemies.forEach(e => {
         let tex = Sprites["enemy_idle"];
         if (e.state === "dead") tex = Sprites["enemy_die"];
@@ -621,19 +633,20 @@ function renderSprites() {
         });
     });
 
-    // Calculate distances to player and sort back-to-front
+    // Sort sprites from farthest to nearest (back-to-front painter's algorithm)
     activeSprites.forEach(s => {
         s.dist = Math.pow(player.x - s.x, 2) + Math.pow(player.y - s.y, 2);
     });
     activeSprites.sort((a, b) => b.dist - a.dist);
 
-    // Render sorted list
+    // Render sorted list using exact inverse matrix math
     activeSprites.forEach(s => {
-        const dx = s.x - player.x;
-        const dy = s.y - player.y;
+        // 1. Calculate relative coordinates to player
+        const relX = s.x - player.x;
+        const relY = s.y - player.y;
 
         /*
-         * BUG NOTE CALL-OUT:
+         * ENGINE DESIGN NOTE:
          * Previously, the sprite translation code used a simple 2D angle rotation:
          *   rotX = spriteX * cos - spriteY * sin;
          *   rotY = spriteX * sin + spriteY * cos;
@@ -645,25 +658,18 @@ function renderSprites() {
          * we rotate and scale the offsets (dx, dy) into camera space (transformX, transformY).
          * This correctly projects the sprite, locking it to the world grid without cursor-relative drift.
          */
+        const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
 
-        const dirX = Math.cos(player.angle);
-        const dirY = Math.sin(player.angle);
+        // Compute transformed camera-space coordinates using inverse camera matrix
+        const transformX = invDet * (player.dirY * relX - player.dirX * relY);
+        const transformY = invDet * (-player.planeY * relX + player.planeX * relY); // Depth coordinate
 
-        // Camera plane representation (perpendicular to direction, scaled by FOV tangent)
-        const planeX = -dirY * Math.tan(CONFIG.fov / 2);
-        const planeY = dirX * Math.tan(CONFIG.fov / 2);
+        if (transformY <= 0.1) return; // Behind player view camera
 
-        // Inverse camera matrix determinant
-        const invDet = 1.0 / (planeX * dirY - dirX * planeY);
-
-        // Transform sprite to camera plane space
-        const transformX = invDet * (dirY * dx - dirX * dy);
-        const transformY = invDet * (-planeY * dx + planeX * dy); // This acts as depth (Z)
-
-        if (transformY <= 0.1) return;
-
+        // Calculate screen center column for projected sprite
         const spriteScreenX = Math.floor((w / 2) * (1 + transformX / transformY));
 
+        // Height & width scaling factor
         const spriteHeight = Math.abs(Math.floor(h / transformY));
         const drawStartY = Math.max(0, -spriteHeight / 2 + h / 2);
         const drawEndY = Math.min(h - 1, spriteHeight / 2 + h / 2);
@@ -675,12 +681,15 @@ function renderSprites() {
         const texWidth = 64;
         const texHeight = 64;
 
+        // Render sprite columns, clipping against the per-column Z-Buffer
         for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
             const texX = Math.floor(256 * (stripe - (-spriteWidth / 2 + spriteScreenX)) * texWidth / spriteWidth) / 256;
             
+            // Only draw if the sprite column is closer to player than the wall slice
             if (transformY < zBuffer[stripe]) {
                 ctx.drawImage(s.canvas, texX, 0, 1, texHeight, stripe, drawStartY, 1, drawEndY - drawStartY);
                 
+                // Shade sprite relative to distance
                 const shadowOpacity = Math.min(0.9, transformY / 12);
                 ctx.fillStyle = `rgba(0, 0, 0, ${shadowOpacity})`;
                 ctx.fillRect(stripe, drawStartY, 1, drawEndY - drawStartY);
@@ -689,13 +698,27 @@ function renderSprites() {
     });
 }
 
-// 10. GAME LOGIC & STATE UPDATE LOOP
-let gameState = "menu";
-let lastTime = 0;
+// 10. PHYSICS & POSITION UPDATE (Vector Matrix Rotations)
+function rotateCamera(theta) {
+    // Perform standard 2D vector rotation matrix transformations
+    const cosT = Math.cos(theta);
+    const sinT = Math.sin(theta);
+
+    // Rotate player direction vector
+    const oldDirX = player.dirX;
+    player.dirX = player.dirX * cosT - player.dirY * sinT;
+    player.dirY = oldDirX * sinT + player.dirY * cosT;
+
+    // Rotate player camera plane vector
+    const oldPlaneX = player.planeX;
+    player.planeX = player.planeX * cosT - player.planeY * sinT;
+    player.planeY = oldPlaneX * sinT + player.planeY * cosT;
+}
 
 function updatePhysics(dt) {
     if (gameState !== "play") return;
 
+    // Movement directions
     let moveForward = 0;
     let strafeRight = 0;
 
@@ -704,19 +727,28 @@ function updatePhysics(dt) {
     if (keys["KeyA"]) strafeRight -= 1;
     if (keys["KeyD"]) strafeRight += 1;
 
+    // Keyboard rotation inputs
     let turnDir = 0;
     if (keys["ArrowLeft"]) turnDir -= 1;
     if (keys["ArrowRight"]) turnDir += 1;
 
-    player.angle += mouseDeltaX * 0.0022;
-    mouseDeltaX = 0;
+    // Apply mouse look rotation
+    if (mouseDeltaX !== 0) {
+        rotateCamera(mouseDeltaX * 0.0022);
+        mouseDeltaX = 0;
+    }
 
-    player.angle += turnDir * CONFIG.player.rotSpeed * dt;
-    player.angle = (player.angle + Math.PI * 2) % (Math.PI * 2);
+    // Apply keyboard look rotation
+    if (turnDir !== 0) {
+        rotateCamera(turnDir * CONFIG.player.rotSpeed * dt);
+    }
 
-    const moveX = (Math.cos(player.angle) * moveForward - Math.sin(player.angle) * strafeRight) * CONFIG.player.speed * dt;
-    const moveY = (Math.sin(player.angle) * moveForward + Math.cos(player.angle) * strafeRight) * CONFIG.player.speed * dt;
+    // Calculate displacement based on direction and plane vectors
+    // Forward vector is (dirX, dirY), Right vector is (planeX, planeY) normalized
+    const moveX = (player.dirX * moveForward - player.planeX * strafeRight) * CONFIG.player.speed * dt;
+    const moveY = (player.dirY * moveForward - player.planeY * strafeRight) * CONFIG.player.speed * dt;
 
+    // Move player with wall sliding collision
     const nextX = player.x + moveX;
     if (MAP[Math.floor(player.y)][Math.floor(nextX + (moveX > 0 ? CONFIG.player.radius : -CONFIG.player.radius))] === 0) {
         player.x = nextX;
@@ -726,17 +758,16 @@ function updatePhysics(dt) {
         player.y = nextY;
     }
 
-    // Check Pickup collisions
+    // Collect Pickups
     sprites.forEach(s => {
         if (!s.collected) {
             const dist = Math.sqrt(Math.pow(player.x - s.x, 2) + Math.pow(player.y - s.y, 2));
-            if (dist < 0.4) {
+            if (dist < 0.45) {
                 let collected = false;
                 if (s.type === "health" && player.health < 100) {
                     player.health = Math.min(100, player.health + CONFIG.pickups.healthAmount);
                     collected = true;
                 } else if (s.type === "ammo") {
-                    // Shared ammo box gives both shotgun shell and chaingun bullet ammo
                     player.ammo[1] = Math.min(CONFIG.weapons[1].maxAmmo, player.ammo[1] + CONFIG.pickups.ammoShells);
                     player.ammo[2] = Math.min(CONFIG.weapons[2].maxAmmo, player.ammo[2] + CONFIG.pickups.ammoBullets);
                     collected = true;
@@ -752,7 +783,8 @@ function updatePhysics(dt) {
     });
 }
 
-function updateAI(dt) {
+// 11. ENTITIES UPDATE (Enemy AI Logic)
+function updateEntities(dt) {
     if (gameState !== "play") return;
 
     let aliveEnemies = 0;
@@ -762,6 +794,7 @@ function updateAI(dt) {
 
         const dist = Math.sqrt(Math.pow(player.x - e.x, 2) + Math.pow(player.y - e.y, 2));
         
+        // Raycast Line of Sight check
         let hasLOS = true;
         const steps = Math.floor(dist * 2.5);
         if (steps > 0) {
@@ -777,15 +810,16 @@ function updateAI(dt) {
             }
         }
 
-        // Enemy State Machine Logic
+        // Hurt Stagger Transition
         if (e.state === "hurt") {
             e.hurtTimer -= dt * 1000;
             if (e.hurtTimer <= 0) {
                 e.state = "chase";
             }
-            return; // Hurt stun, skip update
+            return;
         }
 
+        // Idle ➔ Chase ➔ Attack transitions
         if (e.state === "idle") {
             if (dist < CONFIG.enemy.detectionRadius && hasLOS) {
                 e.state = "chase";
@@ -793,8 +827,9 @@ function updateAI(dt) {
         } else if (e.state === "chase") {
             if (dist <= CONFIG.enemy.attackRange && hasLOS) {
                 e.state = "attack";
-                e.attackTimer = 0;
+                e.attackTimer = 0; // Strike immediately
             } else {
+                // Move towards player in world space (AI direction is independent of player cursor looking)
                 const dirX = (player.x - e.x) / dist;
                 const dirY = (player.y - e.y) / dist;
                 
@@ -805,12 +840,12 @@ function updateAI(dt) {
                 const nextY = e.y + moveStepY;
                 const enemyRadius = 0.25;
 
-                // Try combined move
+                // Try combined path step
                 if (MAP[Math.floor(nextY)][Math.floor(nextX)] === 0) {
                     e.x = nextX;
                     e.y = nextY;
                 } else {
-                    // Try sliding along walls: X-only then Y-only
+                    // Slide along wall axes if path is blocked
                     if (MAP[Math.floor(e.y)][Math.floor(nextX + (moveStepX > 0 ? enemyRadius : -enemyRadius))] === 0) {
                         e.x = nextX;
                     }
@@ -843,6 +878,7 @@ function updateAI(dt) {
     }
 }
 
+// 12. WEAPONS MANAGEMENT
 function updateWeapons(dt) {
     if (player.isFiring) {
         player.fireTimer -= dt * 1000;
@@ -859,7 +895,7 @@ function fireActiveWeapon() {
     const w = CONFIG.weapons[player.activeWeaponIdx];
 
     if (player.ammo[player.activeWeaponIdx] <= 0) {
-        sounds.play("enemy_hit");
+        sounds.play("enemy_hit"); // Out-of-ammo click noise
         return;
     }
 
@@ -872,8 +908,16 @@ function fireActiveWeapon() {
 
     sounds.play(w.sound);
 
+    // Shoot hitscan projectile rays
     for (let p = 0; p < w.projectiles; p++) {
-        const shotAngle = player.angle + (Math.random() - 0.5) * w.spread;
+        // Calculate dynamic ray vector by adding noise to player's primary direction
+        const noise = (Math.random() - 0.5) * w.spread;
+        
+        // Calculate ray direction vectors
+        const cosN = Math.cos(noise);
+        const sinN = Math.sin(noise);
+        const rayDirX = player.dirX * cosN - player.dirY * sinN;
+        const rayDirY = player.dirX * sinN + player.dirY * cosN;
 
         let closestEnemy = null;
         let closestDist = Infinity;
@@ -884,14 +928,13 @@ function fireActiveWeapon() {
             const ex = e.x - player.x;
             const ey = e.y - player.y;
 
-            const rayDirX = Math.cos(shotAngle);
-            const rayDirY = Math.sin(shotAngle);
-
+            // Project enemy position onto bullet ray direction
             const proj = ex * rayDirX + ey * rayDirY;
             if (proj > 0) {
                 const perpDist = Math.sqrt((ex * ex + ey * ey) - proj * proj);
                 if (perpDist < 0.4) {
                     if (proj < closestDist) {
+                        // Check if walls block bullet
                         let blocked = false;
                         const steps = Math.floor(proj * 2.5);
                         for (let i = 1; i < steps; i++) {
@@ -929,7 +972,7 @@ function fireActiveWeapon() {
     }
 }
 
-// 11. HUD DRAWING & UI LOGIC
+// 13. HUD & SCREEN OVERLAYS
 function updateHUD() {
     document.getElementById("hud-health").innerText = player.health + "%";
     const healthFill = document.getElementById("health-bar");
@@ -971,6 +1014,7 @@ function drawWeaponHUD() {
 
     ctx.drawImage(wSprite, screenX, screenY, weaponWidth, weaponHeight);
 
+    // Muzzle Flash
     if (player.isFiring && player.fireTimer > (CONFIG.weapons[player.activeWeaponIdx].fireRate * 0.7)) {
         ctx.fillStyle = "#ffdf00";
         ctx.beginPath();
@@ -989,18 +1033,23 @@ function drawWeaponHUD() {
     }
 }
 
-// 12. GAME LOOP MANAGER
+// 14. MAIN GAME LOOP
+let gameState = "menu";
+let lastTime = 0;
+
 function loop(time) {
     const dt = Math.min(0.1, (time - lastTime) / 1000);
     lastTime = time;
 
     updatePhysics(dt);
-    updateAI(dt);
+    updateEntities(dt);
     updateWeapons(dt);
 
     ctx.clearRect(0, 0, CONFIG.resolution.width, CONFIG.resolution.height);
-    castRays();
-    renderSprites();
+    
+    // Render passes
+    castWalls();
+    castSprites();
     drawWeaponHUD();
 
     if (gameState === "play") {
