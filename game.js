@@ -12,6 +12,20 @@ const CONFIG = {
         rotSpeed: 2.2, // radians per second
         radius: 0.25, // collision radius
     },
+    enemy: {
+        detectionRadius: 10.0,
+        moveSpeed: 1.5,
+        attackRange: 0.9,
+        attackDamage: 12,
+        attackCooldown: 1000, // ms
+        maxHp: 50,
+        hurtDuration: 200, // ms stagger stun
+    },
+    pickups: {
+        healthAmount: 25,
+        ammoShells: 6,
+        ammoBullets: 40,
+    },
     weapons: [
         {
             name: "PISTOL",
@@ -178,7 +192,6 @@ const Textures = {};
 const Sprites = {};
 
 function initTexturesAndSprites() {
-    // Helper to create an offscreen canvas
     const createBuffer = (w, h) => {
         const c = document.createElement("canvas");
         c.width = w;
@@ -189,21 +202,18 @@ function initTexturesAndSprites() {
     // Textures Size: 64x64
     // 1. Brick Wall
     const t1 = createBuffer(64, 64);
-    t1.ctx.fillStyle = "#802020"; // Dark red brick
+    t1.ctx.fillStyle = "#802020";
     t1.ctx.fillRect(0, 0, 64, 64);
-    t1.ctx.fillStyle = "#4a4a4a"; // Mortar grey
-    // Horizontal mortar lines
+    t1.ctx.fillStyle = "#4a4a4a";
     for (let y = 0; y < 64; y += 16) {
         t1.ctx.fillRect(0, y, 64, 2);
     }
-    // Vertical brick offsets
     for (let y = 0; y < 64; y += 16) {
         const offset = (y / 16) % 2 === 0 ? 0 : 16;
         for (let x = offset; x < 64 + offset; x += 32) {
             t1.ctx.fillRect(x % 64, y, 2, 16);
         }
     }
-    // Subtle brick variations
     t1.ctx.fillStyle = "rgba(0,0,0,0.15)";
     for (let i = 0; i < 50; i++) {
         t1.ctx.fillRect(Math.random() * 64, Math.random() * 64, 3, 3);
@@ -212,18 +222,17 @@ function initTexturesAndSprites() {
 
     // 2. Tech Wall
     const t2 = createBuffer(64, 64);
-    t2.ctx.fillStyle = "#2e3440"; // Slate blue-grey
+    t2.ctx.fillStyle = "#2e3440";
     t2.ctx.fillRect(0, 0, 64, 64);
-    t2.ctx.fillStyle = "#00f2fe"; // Neon Blue Panels
+    t2.ctx.fillStyle = "#00f2fe";
     t2.ctx.fillRect(8, 8, 48, 4);
     t2.ctx.fillRect(8, 52, 48, 4);
     t2.ctx.fillRect(8, 12, 4, 40);
     t2.ctx.fillRect(52, 12, 4, 40);
-    t2.ctx.fillStyle = "#ff0055"; // Red Status light
+    t2.ctx.fillStyle = "#ff0055";
     t2.ctx.fillRect(20, 24, 6, 6);
-    t2.ctx.fillStyle = "#39ff14"; // Green Status light
+    t2.ctx.fillStyle = "#39ff14";
     t2.ctx.fillRect(38, 24, 6, 6);
-    // Grill lines
     t2.ctx.fillStyle = "#1e222b";
     for (let y = 36; y < 48; y += 4) {
         t2.ctx.fillRect(16, y, 32, 2);
@@ -232,9 +241,8 @@ function initTexturesAndSprites() {
 
     // 3. Grid/Door Wall
     const t3 = createBuffer(64, 64);
-    t3.ctx.fillStyle = "#4c566a"; // Steel grey
+    t3.ctx.fillStyle = "#4c566a";
     t3.ctx.fillRect(0, 0, 64, 64);
-    // Hazard Stripes
     t3.ctx.fillStyle = "#ffdf00";
     t3.ctx.beginPath();
     for (let i = -64; i < 64; i += 16) {
@@ -244,7 +252,6 @@ function initTexturesAndSprites() {
         t3.ctx.lineTo(i + 64, 64);
         t3.ctx.fill();
     }
-    // Dark frame border
     t3.ctx.fillStyle = "#2e3440";
     t3.ctx.fillRect(0, 0, 64, 4);
     t3.ctx.fillRect(0, 60, 64, 4);
@@ -256,21 +263,18 @@ function initTexturesAndSprites() {
     // 1. Enemy Idle
     const sIdle = createBuffer(64, 64);
     sIdle.ctx.fillStyle = "transparent";
-    // Body (Floating sphere)
     sIdle.ctx.beginPath();
     sIdle.ctx.arc(32, 32, 18, 0, Math.PI * 2);
-    sIdle.ctx.fillStyle = "#9c27b0"; // Purple body
+    sIdle.ctx.fillStyle = "#9c27b0";
     sIdle.ctx.fill();
-    // Eye
     sIdle.ctx.beginPath();
     sIdle.ctx.arc(32, 26, 6, 0, Math.PI * 2);
     sIdle.ctx.fillStyle = "#ffffff";
     sIdle.ctx.fill();
     sIdle.ctx.beginPath();
     sIdle.ctx.arc(32, 26, 3, 0, Math.PI * 2);
-    sIdle.ctx.fillStyle = "#ff0055"; // Red pupil
+    sIdle.ctx.fillStyle = "#ff0055";
     sIdle.ctx.fill();
-    // Horns
     sIdle.ctx.fillStyle = "#3b0066";
     sIdle.ctx.beginPath();
     sIdle.ctx.moveTo(18, 20); sIdle.ctx.lineTo(10, 8); sIdle.ctx.lineTo(24, 18);
@@ -283,8 +287,7 @@ function initTexturesAndSprites() {
     // 2. Enemy Chase/Walk
     const sChase = createBuffer(64, 64);
     sChase.ctx.drawImage(sIdle.canvas, 0, 0);
-    // Draw moving hover flames under body
-    sChase.ctx.fillStyle = "#ff5722"; // Orange fire
+    sChase.ctx.fillStyle = "#ff5722";
     sChase.ctx.beginPath();
     sChase.ctx.moveTo(24, 46); sChase.ctx.lineTo(32, 60); sChase.ctx.lineTo(40, 46);
     sChase.ctx.fill();
@@ -293,71 +296,71 @@ function initTexturesAndSprites() {
     // 3. Enemy Attack (Charging)
     const sAttack = createBuffer(64, 64);
     sAttack.ctx.drawImage(sIdle.canvas, 0, 0);
-    // Glow eye
     sAttack.ctx.fillStyle = "rgba(255, 0, 85, 0.4)";
     sAttack.ctx.beginPath();
     sAttack.ctx.arc(32, 26, 12, 0, Math.PI * 2);
     sAttack.ctx.fill();
     Sprites["enemy_attack"] = sAttack.canvas;
 
-    // 4. Enemy Die
+    // 4. Enemy Hurt (Staggered glow)
+    const sHurt = createBuffer(64, 64);
+    sHurt.ctx.drawImage(sIdle.canvas, 0, 0);
+    sHurt.ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    sHurt.ctx.fillRect(0, 0, 64, 64);
+    Sprites["enemy_hurt"] = sHurt.canvas;
+
+    // 5. Enemy Die
     const sDie = createBuffer(64, 64);
     sDie.ctx.fillStyle = "#7b1fa2";
     sDie.ctx.beginPath();
     sDie.ctx.arc(32, 45, 14, 0, Math.PI * 2);
     sDie.ctx.fill();
-    sDie.ctx.fillStyle = "#ff0055"; // Splatter
+    sDie.ctx.fillStyle = "#ff0055";
     sDie.ctx.fillRect(15, 45, 34, 4);
     sDie.ctx.fillRect(25, 35, 14, 15);
     Sprites["enemy_die"] = sDie.canvas;
 
-    // 5. Pickup - Health
+    // 6. Pickup - Health
     const sHealth = createBuffer(64, 64);
     sHealth.ctx.beginPath();
     sHealth.ctx.arc(32, 40, 12, 0, Math.PI * 2);
     sHealth.ctx.fillStyle = "#1e1e24";
     sHealth.ctx.fill();
-    sHealth.ctx.fillStyle = "#39ff14"; // Green Cross
+    sHealth.ctx.fillStyle = "#39ff14";
     sHealth.ctx.fillRect(29, 32, 6, 16);
     sHealth.ctx.fillRect(24, 37, 16, 6);
     Sprites["pickup_health"] = sHealth.canvas;
 
-    // 6. Pickup - Ammo
+    // 7. Pickup - Ammo (Bullet & Shell bundle)
     const sAmmo = createBuffer(64, 64);
-    sAmmo.ctx.fillStyle = "#ffdf00"; // Gold bullet box
+    sAmmo.ctx.fillStyle = "#ffdf00";
     sAmmo.ctx.fillRect(20, 32, 24, 18);
     sAmmo.ctx.fillStyle = "#000000";
     sAmmo.ctx.font = "bold 8px Courier";
     sAmmo.ctx.fillText("AMMO", 22, 43);
     Sprites["pickup_ammo"] = sAmmo.canvas;
 
-    // Weapons Frame Drawing
-    // We render weapon frame sequences dynamically during update, but we pre-render base guns for precision.
-    // 1. Pistol Gun Base (Drawn on 64x64 buffer then scaled overlay)
+    // Weapons frames
     const wPistol = createBuffer(64, 64);
-    wPistol.ctx.fillStyle = "#4c566a"; // Steel grey barrel
+    wPistol.ctx.fillStyle = "#4c566a";
     wPistol.ctx.fillRect(28, 20, 8, 30);
-    wPistol.ctx.fillStyle = "#2e3440"; // Dark muzzle/details
+    wPistol.ctx.fillStyle = "#2e3440";
     wPistol.ctx.fillRect(30, 16, 4, 10);
-    // Hand grip
-    wPistol.ctx.fillStyle = "#5c4033"; // Hand/Glove brown
+    wPistol.ctx.fillStyle = "#5c4033";
     wPistol.ctx.fillRect(24, 45, 16, 19);
     Sprites["weapon_pistol"] = wPistol.canvas;
 
-    // 2. Shotgun Base
     const wShotgun = createBuffer(64, 64);
-    wShotgun.ctx.fillStyle = "#2e3440"; // Twin iron barrels
+    wShotgun.ctx.fillStyle = "#2e3440";
     wShotgun.ctx.fillRect(24, 15, 7, 35);
     wShotgun.ctx.fillRect(33, 15, 7, 35);
     wShotgun.ctx.fillStyle = "#1a1c23";
-    wShotgun.ctx.fillRect(22, 40, 20, 10); // Pump mechanism
+    wShotgun.ctx.fillRect(22, 40, 20, 10);
     Sprites["weapon_shotgun"] = wShotgun.canvas;
 
-    // 3. Chaingun Base
     const wChaingun = createBuffer(64, 64);
     wChaingun.ctx.fillStyle = "#4c566a";
     wChaingun.ctx.fillRect(27, 22, 10, 28);
-    // Rotary barrels
     wChaingun.ctx.fillStyle = "#1e222b";
     wChaingun.ctx.fillRect(29, 12, 2, 12);
     wChaingun.ctx.fillRect(32, 12, 2, 12);
@@ -369,7 +372,7 @@ function initTexturesAndSprites() {
 const player = {
     x: 1.5,
     y: 1.5,
-    angle: 0,
+    angle: 0.5,
     health: 100,
     activeWeaponIdx: 0,
     ammo: [Infinity, 12, 60], // Pistol, Shotgun, Chaingun
@@ -380,7 +383,7 @@ const player = {
 };
 
 let enemies = [];
-let sprites = []; // All non-enemy sprites (pickups, environment objects)
+let sprites = []; // Pickups
 
 function initMapEntities() {
     player.x = 1.5;
@@ -392,14 +395,14 @@ function initMapEntities() {
     player.kills = 0;
     player.isFiring = false;
 
-    // Spawn 6 Enemies
+    // Spawn Enemies
     enemies = [
-        { x: 14.5, y: 14.5, hp: 50, state: "idle", cooldown: 0, xSpeed: 0, ySpeed: 0 },
-        { x: 14.5, y: 2.5,  hp: 50, state: "idle", cooldown: 0, xSpeed: 0, ySpeed: 0 },
-        { x: 1.5,  y: 14.5, hp: 50, state: "idle", cooldown: 0, xSpeed: 0, ySpeed: 0 },
-        { x: 5.5,  y: 9.5,  hp: 50, state: "idle", cooldown: 0, xSpeed: 0, ySpeed: 0 },
-        { x: 9.5,  y: 9.5,  hp: 50, state: "idle", cooldown: 0, xSpeed: 0, ySpeed: 0 },
-        { x: 10.5, y: 13.5, hp: 50, state: "idle", cooldown: 0, xSpeed: 0, ySpeed: 0 }
+        { x: 14.5, y: 14.5, hp: CONFIG.enemy.maxHp, state: "idle", attackTimer: 0, hurtTimer: 0 },
+        { x: 14.5, y: 2.5,  hp: CONFIG.enemy.maxHp, state: "idle", attackTimer: 0, hurtTimer: 0 },
+        { x: 5.5,  y: 14.5, hp: CONFIG.enemy.maxHp, state: "idle", attackTimer: 0, hurtTimer: 0 },
+        { x: 5.5,  y: 9.5,  hp: CONFIG.enemy.maxHp, state: "idle", attackTimer: 0, hurtTimer: 0 },
+        { x: 9.5,  y: 9.5,  hp: CONFIG.enemy.maxHp, state: "idle", attackTimer: 0, hurtTimer: 0 },
+        { x: 10.5, y: 13.5, hp: CONFIG.enemy.maxHp, state: "idle", attackTimer: 0, hurtTimer: 0 }
     ];
 
     // Spawn Pickups
@@ -422,7 +425,7 @@ let mouseDeltaX = 0;
 function setupInputs() {
     window.addEventListener("keydown", e => {
         keys[e.code] = true;
-        sounds.init(); // Init Audio on user interactions
+        sounds.init();
         if (e.code === "Digit1") switchWeapon(0);
         if (e.code === "Digit2") switchWeapon(1);
         if (e.code === "Digit3") switchWeapon(2);
@@ -457,7 +460,6 @@ function setupInputs() {
         }
     });
 
-    // Weapon scroll switch
     window.addEventListener("wheel", e => {
         if (gameState !== "play") return;
         let newIdx = player.activeWeaponIdx + (e.deltaY > 0 ? 1 : -1);
@@ -486,37 +488,30 @@ function castRays() {
     const w = CONFIG.resolution.width;
     const h = CONFIG.resolution.height;
 
-    // Floor and Ceiling Draw (Flat Colors)
-    ctx.fillStyle = "#1e1e24"; // Ceiling
+    ctx.fillStyle = "#1e1e24";
     ctx.fillRect(0, 0, w, h / 2);
-    ctx.fillStyle = "#332211"; // Floor
+    ctx.fillStyle = "#332211";
     ctx.fillRect(0, h / 2, w, h / 2);
 
     for (let x = 0; x < w; x++) {
-        // Ray angle calculation relative to player rotation
-        const cameraX = 2 * x / w - 1; // x-coordinate in camera space
+        const cameraX = 2 * x / w - 1;
         const rayAngle = player.angle + cameraX * (CONFIG.fov / 2);
 
-        // Ray direction vectors
         const rayDirX = Math.cos(rayAngle);
         const rayDirY = Math.sin(rayAngle);
 
-        // Grid coordinate
         let mapX = Math.floor(player.x);
         let mapY = Math.floor(player.y);
 
-        // Length of ray from current position to next x or y side
         let sideDistX, sideDistY;
 
-        // Length of ray from one x or y side to next x or y side
         const deltaDistX = Math.abs(1 / rayDirX);
         const deltaDistY = Math.abs(1 / rayDirY);
 
         let stepX, stepY;
         let hit = 0;
-        let side = 0; // 0 = vertical wall hit, 1 = horizontal wall hit
+        let side = 0;
 
-        // Step direction & sideDist initialization
         if (rayDirX < 0) {
             stepX = -1;
             sideDistX = (player.x - mapX) * deltaDistX;
@@ -533,7 +528,6 @@ function castRays() {
             sideDistY = (mapY + 1.0 - player.y) * deltaDistY;
         }
 
-        // Perform DDA (Digital Differential Analysis) search loop
         while (hit === 0) {
             if (sideDistX < sideDistY) {
                 sideDistX += deltaDistX;
@@ -545,36 +539,28 @@ function castRays() {
                 side = 1;
             }
 
-            // Boundary safety check
             if (mapX < 0 || mapX >= MAP_WIDTH || mapY < 0 || mapY >= MAP_HEIGHT) {
                 break;
             }
 
-            // Check if ray hit a wall
             if (MAP[mapY][mapX] > 0) {
                 hit = MAP[mapY][mapX];
             }
         }
 
-        // Exited grid or hit a wall
         if (hit > 0) {
-            // Distance calculation
             let perpWallDist;
             if (side === 0) perpWallDist = sideDistX - deltaDistX;
             else perpWallDist = sideDistY - deltaDistY;
 
-            // Save depth in Z-Buffer for correct sprite occlusion
             zBuffer[x] = perpWallDist;
 
-            // Correct fisheye distortion
             const correctedDist = perpWallDist * Math.cos(rayAngle - player.angle);
 
-            // Compute draw heights
             const wallHeight = Math.floor(h / correctedDist);
             const drawStart = Math.max(0, -wallHeight / 2 + h / 2);
             const drawEnd = Math.min(h - 1, wallHeight / 2 + h / 2);
 
-            // Map Texture coordinate
             const wallTex = Textures[hit];
             if (wallTex) {
                 let wallX;
@@ -583,19 +569,15 @@ function castRays() {
                 wallX -= Math.floor(wallX);
 
                 let texX = Math.floor(wallX * 64);
-                // Flip texture X if looking in specific directions to prevent mirroring errors
                 if (side === 0 && rayDirX > 0) texX = 63 - texX;
                 if (side === 1 && rayDirY < 0) texX = 63 - texX;
 
-                // Draw standard vertical slice
                 ctx.drawImage(wallTex, texX, 0, 1, 64, x, drawStart, 1, drawEnd - drawStart);
             } else {
-                // Fallback flat color
                 ctx.fillStyle = side === 1 ? "#555" : "#777";
                 ctx.fillRect(x, drawStart, 1, drawEnd - drawStart);
             }
 
-            // Draw Distance Shadow overlay
             const shadowOpacity = Math.min(1.0, perpWallDist / 12);
             ctx.fillStyle = `rgba(0, 0, 0, ${shadowOpacity})`;
             ctx.fillRect(x, drawStart, 1, drawEnd - drawStart);
@@ -608,10 +590,9 @@ function renderSprites() {
     const w = CONFIG.resolution.width;
     const h = CONFIG.resolution.height;
 
-    // Combine enemies and collectibles for rendering sorting
     const activeSprites = [];
 
-    // Add collectibles
+    // Add pickups
     sprites.forEach(s => {
         if (!s.collected) {
             activeSprites.push({
@@ -629,6 +610,7 @@ function renderSprites() {
         if (e.state === "dead") tex = Sprites["enemy_die"];
         else if (e.state === "attack") tex = Sprites["enemy_attack"];
         else if (e.state === "chase") tex = Sprites["enemy_chase"];
+        else if (e.state === "hurt") tex = Sprites["enemy_hurt"];
 
         activeSprites.push({
             x: e.x,
@@ -647,44 +629,59 @@ function renderSprites() {
 
     // Render sorted list
     activeSprites.forEach(s => {
-        const spriteX = s.x - player.x;
-        const spriteY = s.y - player.y;
+        const dx = s.x - player.x;
+        const dy = s.y - player.y;
 
-        // Transform sprite coordinate using inverse camera projection
-        const invDet = 1.0 / (Math.cos(player.angle) * Math.cos(player.angle) - -Math.sin(player.angle) * Math.sin(player.angle)); // Dummy det for alignment
-        const cos = Math.cos(-player.angle);
-        const sin = Math.sin(-player.angle);
+        /*
+         * BUG NOTE CALL-OUT:
+         * Previously, the sprite translation code used a simple 2D angle rotation:
+         *   rotX = spriteX * cos - spriteY * sin;
+         *   rotY = spriteX * sin + spriteY * cos;
+         * This simple 2D coordinate rotation was not mapped to the camera matrix,
+         * resulting in sprites sliding across the screen relative to the cursor when the camera rotated.
+         *
+         * FIX: We now define the player direction vectors (dirX, dirY) and camera plane (planeX, planeY)
+         * based on player.angle and CONFIG.fov. Using the standard inverse matrix calculation (invDet),
+         * we rotate and scale the offsets (dx, dy) into camera space (transformX, transformY).
+         * This correctly projects the sprite, locking it to the world grid without cursor-relative drift.
+         */
 
-        // Rotate sprite relative to player orientation
-        const rotX = spriteX * cos - spriteY * sin;
-        const rotY = spriteX * sin + spriteY * cos; // Depth coordinate relative to screen camera
+        const dirX = Math.cos(player.angle);
+        const dirY = Math.sin(player.angle);
 
-        if (rotY <= 0.1) return; // Behind player view camera
+        // Camera plane representation (perpendicular to direction, scaled by FOV tangent)
+        const planeX = -dirY * Math.tan(CONFIG.fov / 2);
+        const planeY = dirX * Math.tan(CONFIG.fov / 2);
 
-        const spriteScreenX = Math.floor((w / 2) * (1 + rotX / rotY));
+        // Inverse camera matrix determinant
+        const invDet = 1.0 / (planeX * dirY - dirX * planeY);
 
-        // Get height & width scaling factor
-        const spriteHeight = Math.abs(Math.floor(h / rotY));
+        // Transform sprite to camera plane space
+        const transformX = invDet * (dirY * dx - dirX * dy);
+        const transformY = invDet * (-planeY * dx + planeX * dy); // This acts as depth (Z)
+
+        if (transformY <= 0.1) return;
+
+        const spriteScreenX = Math.floor((w / 2) * (1 + transformX / transformY));
+
+        const spriteHeight = Math.abs(Math.floor(h / transformY));
         const drawStartY = Math.max(0, -spriteHeight / 2 + h / 2);
         const drawEndY = Math.min(h - 1, spriteHeight / 2 + h / 2);
 
-        const spriteWidth = Math.abs(Math.floor(h / rotY));
+        const spriteWidth = Math.abs(Math.floor(h / transformY));
         const drawStartX = Math.max(0, -spriteWidth / 2 + spriteScreenX);
         const drawEndX = Math.min(w - 1, spriteWidth / 2 + spriteScreenX);
 
         const texWidth = 64;
         const texHeight = 64;
 
-        // Render sprite columns using Z-Buffer to handle wall obstruction
         for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
             const texX = Math.floor(256 * (stripe - (-spriteWidth / 2 + spriteScreenX)) * texWidth / spriteWidth) / 256;
             
-            // Only draw if ray is in front of wall Z-Buffer distance
-            if (rotY < zBuffer[stripe]) {
+            if (transformY < zBuffer[stripe]) {
                 ctx.drawImage(s.canvas, texX, 0, 1, texHeight, stripe, drawStartY, 1, drawEndY - drawStartY);
                 
-                // Shade sprite relative to distance
-                const shadowOpacity = Math.min(0.9, rotY / 12);
+                const shadowOpacity = Math.min(0.9, transformY / 12);
                 ctx.fillStyle = `rgba(0, 0, 0, ${shadowOpacity})`;
                 ctx.fillRect(stripe, drawStartY, 1, drawEndY - drawStartY);
             }
@@ -693,13 +690,12 @@ function renderSprites() {
 }
 
 // 10. GAME LOGIC & STATE UPDATE LOOP
-let gameState = "menu"; // "menu", "play", "gameover", "win"
+let gameState = "menu";
 let lastTime = 0;
 
 function updatePhysics(dt) {
     if (gameState !== "play") return;
 
-    // Movement & Turning inputs
     let moveForward = 0;
     let strafeRight = 0;
 
@@ -708,28 +704,23 @@ function updatePhysics(dt) {
     if (keys["KeyA"]) strafeRight -= 1;
     if (keys["KeyD"]) strafeRight += 1;
 
-    // Fallback arrow key turning
     let turnDir = 0;
     if (keys["ArrowLeft"]) turnDir -= 1;
     if (keys["ArrowRight"]) turnDir += 1;
 
-    // Mouse turning
     player.angle += mouseDeltaX * 0.0022;
-    mouseDeltaX = 0; // Reset tick movement delta
+    mouseDeltaX = 0;
 
     player.angle += turnDir * CONFIG.player.rotSpeed * dt;
     player.angle = (player.angle + Math.PI * 2) % (Math.PI * 2);
 
-    // Compute player movement displacement
     const moveX = (Math.cos(player.angle) * moveForward - Math.sin(player.angle) * strafeRight) * CONFIG.player.speed * dt;
     const moveY = (Math.sin(player.angle) * moveForward + Math.cos(player.angle) * strafeRight) * CONFIG.player.speed * dt;
 
-    // Move & Collide with Walls (Horizontal axis)
     const nextX = player.x + moveX;
     if (MAP[Math.floor(player.y)][Math.floor(nextX + (moveX > 0 ? CONFIG.player.radius : -CONFIG.player.radius))] === 0) {
         player.x = nextX;
     }
-    // Move & Collide with Walls (Vertical axis)
     const nextY = player.y + moveY;
     if (MAP[Math.floor(nextY + (moveY > 0 ? CONFIG.player.radius : -CONFIG.player.radius))][Math.floor(player.x)] === 0) {
         player.y = nextY;
@@ -740,15 +731,22 @@ function updatePhysics(dt) {
         if (!s.collected) {
             const dist = Math.sqrt(Math.pow(player.x - s.x, 2) + Math.pow(player.y - s.y, 2));
             if (dist < 0.4) {
-                s.collected = true;
-                sounds.play("pickup");
-                if (s.type === "health") {
-                    player.health = Math.min(100, player.health + 25);
+                let collected = false;
+                if (s.type === "health" && player.health < 100) {
+                    player.health = Math.min(100, player.health + CONFIG.pickups.healthAmount);
+                    collected = true;
                 } else if (s.type === "ammo") {
-                    player.ammo[1] = Math.min(CONFIG.weapons[1].maxAmmo, player.ammo[1] + 6);
-                    player.ammo[2] = Math.min(CONFIG.weapons[2].maxAmmo, player.ammo[2] + 40);
+                    // Shared ammo box gives both shotgun shell and chaingun bullet ammo
+                    player.ammo[1] = Math.min(CONFIG.weapons[1].maxAmmo, player.ammo[1] + CONFIG.pickups.ammoShells);
+                    player.ammo[2] = Math.min(CONFIG.weapons[2].maxAmmo, player.ammo[2] + CONFIG.pickups.ammoBullets);
+                    collected = true;
                 }
-                updateHUD();
+
+                if (collected) {
+                    s.collected = true;
+                    sounds.play("pickup");
+                    updateHUD();
+                }
             }
         }
     });
@@ -764,48 +762,77 @@ function updateAI(dt) {
 
         const dist = Math.sqrt(Math.pow(player.x - e.x, 2) + Math.pow(player.y - e.y, 2));
         
-        // Simple Line Of Sight (Raycast to player)
         let hasLOS = true;
         const steps = Math.floor(dist * 2.5);
-        const dx = (player.x - e.x) / steps;
-        const dy = (player.y - e.y) / steps;
-        for (let i = 1; i < steps; i++) {
-            const cx = e.x + dx * i;
-            const cy = e.y + dy * i;
-            if (MAP[Math.floor(cy)][Math.floor(cx)] > 0) {
-                hasLOS = false;
-                break;
+        if (steps > 0) {
+            const dx = (player.x - e.x) / steps;
+            const dy = (player.y - e.y) / steps;
+            for (let i = 1; i < steps; i++) {
+                const cx = e.x + dx * i;
+                const cy = e.y + dy * i;
+                if (MAP[Math.floor(cy)][Math.floor(cx)] > 0) {
+                    hasLOS = false;
+                    break;
+                }
             }
         }
 
-        if (hasLOS) {
-            e.state = dist < 1.0 ? "attack" : "chase";
-        } else if (e.state !== "idle") {
-            e.state = "chase"; // Head towards player's direction
+        // Enemy State Machine Logic
+        if (e.state === "hurt") {
+            e.hurtTimer -= dt * 1000;
+            if (e.hurtTimer <= 0) {
+                e.state = "chase";
+            }
+            return; // Hurt stun, skip update
         }
 
-        if (e.state === "chase") {
-            const dirX = (player.x - e.x) / dist;
-            const dirY = (player.y - e.y) / dist;
-            const nextX = e.x + dirX * 1.5 * dt;
-            const nextY = e.y + dirY * 1.5 * dt;
+        if (e.state === "idle") {
+            if (dist < CONFIG.enemy.detectionRadius && hasLOS) {
+                e.state = "chase";
+            }
+        } else if (e.state === "chase") {
+            if (dist <= CONFIG.enemy.attackRange && hasLOS) {
+                e.state = "attack";
+                e.attackTimer = 0;
+            } else {
+                const dirX = (player.x - e.x) / dist;
+                const dirY = (player.y - e.y) / dist;
+                
+                const moveStepX = dirX * CONFIG.enemy.moveSpeed * dt;
+                const moveStepY = dirY * CONFIG.enemy.moveSpeed * dt;
+                
+                const nextX = e.x + moveStepX;
+                const nextY = e.y + moveStepY;
+                const enemyRadius = 0.25;
 
-            // Bulletproof walls for enemies
-            if (MAP[Math.floor(e.y)][Math.floor(nextX)] === 0) e.x = nextX;
-            if (MAP[Math.floor(nextY)][Math.floor(e.x)] === 0) e.y = nextY;
-        }
+                // Try combined move
+                if (MAP[Math.floor(nextY)][Math.floor(nextX)] === 0) {
+                    e.x = nextX;
+                    e.y = nextY;
+                } else {
+                    // Try sliding along walls: X-only then Y-only
+                    if (MAP[Math.floor(e.y)][Math.floor(nextX + (moveStepX > 0 ? enemyRadius : -enemyRadius))] === 0) {
+                        e.x = nextX;
+                    }
+                    if (MAP[Math.floor(nextY + (moveStepY > 0 ? enemyRadius : -enemyRadius))][Math.floor(e.x)] === 0) {
+                        e.y = nextY;
+                    }
+                }
+            }
+        } else if (e.state === "attack") {
+            if (dist > CONFIG.enemy.attackRange || !hasLOS) {
+                e.state = "chase";
+            } else {
+                e.attackTimer -= dt * 1000;
+                if (e.attackTimer <= 0) {
+                    player.health = Math.max(0, player.health - CONFIG.enemy.attackDamage);
+                    sounds.play("player_hit");
+                    e.attackTimer = CONFIG.enemy.attackCooldown;
+                    updateHUD();
 
-        if (e.state === "attack") {
-            e.cooldown -= dt * 1000;
-            if (e.cooldown <= 0) {
-                // Inflict damage to Player
-                player.health = Math.max(0, player.health - 10);
-                sounds.play("player_hit");
-                e.cooldown = 1000; // Attack every 1s
-                updateHUD();
-
-                if (player.health <= 0) {
-                    endGame(false);
+                    if (player.health <= 0) {
+                        endGame(false);
+                    }
                 }
             }
         }
@@ -819,7 +846,6 @@ function updateAI(dt) {
 function updateWeapons(dt) {
     if (player.isFiring) {
         player.fireTimer -= dt * 1000;
-        // Weapon recoil sway calculation
         player.recoilY = Math.sin((player.fireTimer / CONFIG.weapons[player.activeWeaponIdx].fireRate) * Math.PI) * 15;
         if (player.fireTimer <= 0) {
             player.isFiring = false;
@@ -832,9 +858,7 @@ function fireActiveWeapon() {
     if (gameState !== "play" || player.isFiring) return;
     const w = CONFIG.weapons[player.activeWeaponIdx];
 
-    // Check Ammo
     if (player.ammo[player.activeWeaponIdx] <= 0) {
-        // Out of ammo click sound
         sounds.play("enemy_hit");
         return;
     }
@@ -846,26 +870,20 @@ function fireActiveWeapon() {
     }
     updateHUD();
 
-    // Sound effect
     sounds.play(w.sound);
 
-    // Hitscan calculation (simulated rays for damage detection)
     for (let p = 0; p < w.projectiles; p++) {
-        // Apply weapon spread
         const shotAngle = player.angle + (Math.random() - 0.5) * w.spread;
 
-        // Perform raycast trace to find if any enemy intersects
         let closestEnemy = null;
         let closestDist = Infinity;
 
         enemies.forEach(e => {
             if (e.state === "dead") return;
 
-            // Ray-sphere intersection (approximate)
             const ex = e.x - player.x;
             const ey = e.y - player.y;
 
-            // Project enemy position onto bullet shot angle direction
             const rayDirX = Math.cos(shotAngle);
             const rayDirY = Math.sin(shotAngle);
 
@@ -874,7 +892,6 @@ function fireActiveWeapon() {
                 const perpDist = Math.sqrt((ex * ex + ey * ey) - proj * proj);
                 if (perpDist < 0.4) {
                     if (proj < closestDist) {
-                        // Validate walls don't block the bullet line of sight
                         let blocked = false;
                         const steps = Math.floor(proj * 2.5);
                         for (let i = 1; i < steps; i++) {
@@ -898,13 +915,15 @@ function fireActiveWeapon() {
         if (closestEnemy) {
             closestEnemy.hp -= w.damage;
             sounds.play("enemy_hit");
-            if (closestEnemy.state === "idle") closestEnemy.state = "chase";
-
+            
             if (closestEnemy.hp <= 0) {
                 closestEnemy.state = "dead";
                 player.kills++;
                 sounds.play("enemy_die");
                 updateHUD();
+            } else {
+                closestEnemy.state = "hurt";
+                closestEnemy.hurtTimer = CONFIG.enemy.hurtDuration;
             }
         }
     }
@@ -938,7 +957,6 @@ function drawWeaponHUD() {
     const w = CONFIG.resolution.width;
     const h = CONFIG.resolution.height;
 
-    // Pick weapon sprite
     let wSprite;
     if (player.activeWeaponIdx === 0) wSprite = Sprites["weapon_pistol"];
     else if (player.activeWeaponIdx === 1) wSprite = Sprites["weapon_shotgun"];
@@ -949,20 +967,16 @@ function drawWeaponHUD() {
     const weaponHeight = 64 * scale;
 
     const screenX = w / 2 - weaponWidth / 2;
-    // Calculate firing bounce/recoil offset y
     const screenY = h - weaponHeight + player.recoilY + 10;
 
-    // Draw Weapon Sprite
     ctx.drawImage(wSprite, screenX, screenY, weaponWidth, weaponHeight);
 
-    // Muzzle Flash frame (Draw bright energy rings at tip of barrels if firing)
     if (player.isFiring && player.fireTimer > (CONFIG.weapons[player.activeWeaponIdx].fireRate * 0.7)) {
         ctx.fillStyle = "#ffdf00";
         ctx.beginPath();
-        // Barrel Tip offsets
         let tipX = w / 2;
         let tipY = h - 65;
-        if (player.activeWeaponIdx === 1) { // Shotgun spreads double blast
+        if (player.activeWeaponIdx === 1) {
             ctx.arc(tipX - 10, tipY, 12, 0, Math.PI * 2);
             ctx.arc(tipX + 10, tipY, 12, 0, Math.PI * 2);
         } else {
@@ -970,7 +984,6 @@ function drawWeaponHUD() {
         }
         ctx.fill();
 
-        // Overlay light glow tint
         ctx.fillStyle = "rgba(255, 223, 0, 0.15)";
         ctx.fillRect(0, 0, w, h);
     }
@@ -978,14 +991,13 @@ function drawWeaponHUD() {
 
 // 12. GAME LOOP MANAGER
 function loop(time) {
-    const dt = Math.min(0.1, (time - lastTime) / 1000); // Caps dt to prevent physics tunneling
+    const dt = Math.min(0.1, (time - lastTime) / 1000);
     lastTime = time;
 
     updatePhysics(dt);
     updateAI(dt);
     updateWeapons(dt);
 
-    // Clear Screen & Raycast
     ctx.clearRect(0, 0, CONFIG.resolution.width, CONFIG.resolution.height);
     castRays();
     renderSprites();
@@ -1024,12 +1036,10 @@ function restartGame() {
     startGame();
 }
 
-// Initialization Entrypoint
 window.addEventListener("DOMContentLoaded", () => {
     canvas = document.getElementById("gameCanvas");
     ctx = canvas.getContext("2d");
     
-    // Disable smooth rendering so low-res textures scale up with sharp retro pixels
     ctx.imageSmoothingEnabled = false;
     ctx.mozImageSmoothingEnabled = false;
     ctx.webkitImageSmoothingEnabled = false;
